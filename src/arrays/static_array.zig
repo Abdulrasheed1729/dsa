@@ -3,7 +3,7 @@ const Allocator = std.mem.Allocator;
 const testing = std.testing;
 const DEFAULT_ARRAY_CAPACITY = 256;
 
-const StaticArrayError = error{ArrayFull};
+const StaticArrayError = error{ ArrayFull, OutOfBound };
 
 fn StaticArray(comptime T: type) type {
     return struct {
@@ -35,6 +35,14 @@ fn StaticArray(comptime T: type) type {
             if (self.length == 0) return null;
             self.length -= 1;
             return self.items[self.length];
+        }
+
+        fn insert_at(self: *Self, index: usize, value: T) !void {
+            if (index >= self.length) {
+                return StaticArrayError.OutOfBound;
+            }
+
+            self.items[index] = value;
         }
 
         /// free array memory
@@ -76,4 +84,21 @@ test "StaticArray: pop_back" {
     try testing.expectEqual(11, arr.pop_back().?);
     try testing.expectEqual(10, arr.pop_back().?);
     try testing.expectEqual(null, arr.pop_back());
+}
+
+test "StaticArray: insert_at" {
+    var arr = try StaticArray(i32).init(testing.allocator);
+    defer arr.deinit();
+
+    for (0..5) |i| {
+        try arr.push_back(@intCast(i + 10));
+    }
+
+    try arr.insert_at(2, 67);
+    try testing.expectEqual(67, arr.items[2]);
+
+    try testing.expectError(
+        StaticArrayError.OutOfBound,
+        arr.insert_at(5, 67),
+    );
 }
